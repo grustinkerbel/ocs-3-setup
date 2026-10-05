@@ -1,0 +1,79 @@
+# ocs-setup.conf - copy to ocs-setup.conf (same folder as ocs-setup.sh) and edit.
+# This file is sourced as bash. Keep it root-owned: chmod 600 ocs-setup.conf
+
+# Where the stack lives on the server
+OCS_DIR="/opt/ocsinventory-server"
+
+# Official stack version (folder name under .../ocsinventory-server/docker/)
+OCS_VERSION="3.0.0-rc1"
+
+# Name your users' browsers and agents will use to reach this server (FQDN).
+# Must resolve in DNS, and (for https) must be covered by your certificate,
+# e.g. a name under your wildcard domain. Leave empty to use this host's own hostname.
+OCS_HOSTNAME="ocs.example.com"
+
+# http or https. "https" enables TLS: the script validates your certificate, generates an
+# nginx config with TLS for the API (443) and the web console (FRONTEND_PORT), and tests it.
+OCS_SCHEME="https"
+
+# ---- TLS --------------------------------------------------------------------
+# Host paths (defaults shown). Put your files here:
+#   fullchain.pem = server cert + intermediates, privkey.pem = UNENCRYPTED key, ca.crt = optional CA
+#TLS_CERT_FILE="/opt/ocsinventory-server/certs/fullchain.pem"
+#TLS_KEY_FILE="/opt/ocsinventory-server/certs/privkey.pem"
+#TLS_CA_FILE="/opt/ocsinventory-server/certs/ca.crt"
+
+# Where the files appear INSIDE the proxy container (change only if you want them to match
+# names you already use elsewhere).
+#TLS_CERT_CTR="/etc/ssl/certs/wildcard_nmhschool_org.crt"
+#TLS_KEY_CTR="/etc/ssl/private/wildcard_nmhschool_org.key"
+#TLS_CA_CTR="/etc/ssl/certs/DigiCertrCA.crt"
+
+# Port 80 behaviour once TLS is on:
+#   redirect = send everything to HTTPS (recommended end state)
+#   serve    = port 80 still serves the API. Use during migration if some legacy agents
+#              cannot follow redirects or cannot yet use HTTPS.
+HTTP_MODE="redirect"
+
+# Optional nginx tuning for large inventories / slow agents (your 2.x proxy used 1G / 300s).
+NGINX_MAX_BODY_SIZE=""
+NGINX_TIMEOUT_SECONDS=""
+
+# ---- Docker network ---------------------------------------------------------
+# By default Docker picks a subnet itself (often 172.18.0.0/16, 172.19...), which collides when
+# your LAN already uses that range: containers then cannot reach each other (symptom:
+# django OperationalError connecting to "ocsinventory-db" at a 172.x address).
+#
+# 1) Tell the script which ranges YOUR network uses. It can only see this host's own routes, so
+#    ranges reached through your default gateway are invisible unless you list them here:
+RESERVED_RANGES="172.16.0.0/16 172.17.0.0/16 172.18.0.0/16"
+# 2) Pin the OCS network to a range that is unused anywhere on your network.
+#    172.20.0.0/24 is inside the RFC 1918 private block (172.16.0.0/12) and does not overlap
+#    the 172.16/17/18 ranges listed above. A /24 has 254 usable addresses: plenty for this
+#    4-container stack (plus the few extras Docker creates during upgrades) while claiming
+#    only 172.20.0.0 - 172.20.0.255, leaving the rest of 172.20.x.x free. Confirm with your
+#    network team that this /24 is not used elsewhere (VPNs, other sites, other Docker hosts).
+#    If you later need another Docker network on this host, use a different /24 such as
+#    172.20.1.0/24 rather than widening this one.
+DOCKER_SUBNET="172.20.0.0/24"
+#DOCKER_GATEWAY="172.20.0.1"       # optional (default: first address in the subnet)
+
+# Database. Leave DB_PASSWORD empty to auto-generate (stored in $OCS_DIR/.ocs-secrets).
+# Changing these AFTER first start does not change an already-initialised database.
+DB_NAME="ocsdb"
+DB_USER="ocsuser"
+DB_PASSWORD=""
+
+# Published host ports (defaults match the official guide).
+# Non-default values require Docker Compose >= 2.24.
+HTTP_PORT=80
+HTTPS_PORT=443
+FRONTEND_PORT=8080
+
+# Backups
+BACKUP_DIR="/var/backups/ocsinventory"
+BACKUP_RETENTION_DAYS=14
+BACKUP_VOLUMES="true"
+
+# Open ports in ufw / firewalld if one is active
+MANAGE_FIREWALL="true"
